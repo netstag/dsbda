@@ -1,0 +1,86 @@
+//LDriver
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class LDriver {
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();//creating hadoop configuration obj
+        Job job = new Job(conf, "WordCount"); //creating hadoop mapreduce job with name WordCount
+        // Job job = Job.getInstance(conf, "WordCount"); //
+        
+        job.setJarByClass(LDriver.class);
+        job.setMapperClass(LMapper.class);
+        job.setReducerClass(LReducer.class);
+        
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+        
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        
+        System.exit(job.waitForCompletion(true) ? 0 : 1); //
+    }
+}
+
+//LMapper
+import java.io.IOException;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class LMapper extends Mapper<LongWritable , Text , Text , IntWritable>{
+ @Override
+	public void map(LongWritable key , Text value , Context context) throws IOException, InterruptedException{
+	   
+	 String[] parts = value.toString().split(" ");
+	 
+	 String ip = parts[0];
+	 
+	 context.write(new Text(ip) , new IntWritable(1));
+   }
+}
+
+
+//LReducer
+import java.io.IOException;
+
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class LReducer extends Reducer<Text, IntWritable, Text, IntWritable>
+{
+     int maxCount = 0;
+    Text maxUser = new Text();
+
+    public void reduce(Text key, Iterable<IntWritable> values, Context con)
+            throws IOException, InterruptedException
+    {
+        int sum = 0;
+
+        for (IntWritable value : values)
+        {
+            sum += value.get();
+        }
+
+        // Find maximum login/access count
+        if (sum > maxCount)
+        {
+            maxCount = sum;
+            maxUser.set(key.toString());
+        }
+    }
+
+    // Output final result
+    protected void cleanup(Context con)
+            throws IOException, InterruptedException
+    {
+        con.write(maxUser, new IntWritable(maxCount));
+    }
+}
